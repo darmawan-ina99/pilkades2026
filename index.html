@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pilkades Tabulasi - SaaS</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: 'Inter', system-ui, sans-serif; }
+  .fade-in { animation: fadeIn 0.3s ease-in; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  .live-dot { animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md fade-in">
+    <div class="text-center mb-6">
+      <div class="text-5xl mb-2">🗳️</div>
+      <h1 class="text-2xl font-bold text-gray-800">Pilkades Tabulasi</h1>
+      <p class="text-gray-500 text-sm mt-1">Sistem Tabulasi Suara Real-Time</p>
+    </div>
+    
+    <div class="flex gap-2 mb-6">
+      <button onclick="switchLogin('saksi')" id="tabSaksi" class="flex-1 py-2 rounded-lg font-semibold text-sm transition bg-blue-600 text-white">Login Saksi</button>
+      <button onclick="switchLogin('admin')" id="tabAdmin" class="flex-1 py-2 rounded-lg font-semibold text-sm transition bg-gray-100 text-gray-600">Login Admin/Kandidat</button>
+    </div>
+
+    <div id="saksiLogin">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nama Saksi</label>
+          <input id="saksiName" type="text" placeholder="Nama lengkap saksi" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Kode Tim Kandidat</label>
+          <input id="saksiCode" type="text" placeholder=" Contoh: KANDIDAT-01" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none uppercase">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nomor TPS</label>
+          <input id="saksiTps" type="number" placeholder="Contoh: 1" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+        </div>
+        <button onclick="loginSaksi()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">Masuk sebagai Saksi</button>
+      </div>
+    </div>
+
+    <div id="adminLogin" class="hidden">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nama Kandidat / Tim</label>
+          <input id="adminName" type="text" placeholder="Nama kandidat atau tim" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Kode Akses Admin</label>
+          <input id="adminCode" type="text" placeholder="Kode admin" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none uppercase">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nama Desa</label>
+          <input id="adminDesa" type="text" placeholder="Contoh: Sriamur" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none">
+        </div>
+        <button onclick="loginAdmin()" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition">Masuk sebagai Admin</button>
+      </div>
+    </div>
+
+    <p class="text-center text-xs text-gray-400 mt-6">Demo SaaS Pilkades Tabulasi  2026</p>
+  </div>
+</div>
+
+<!-- SAKSI DASHBOARD -->
+<div id="saksiPage" class="hidden min-h-screen">
+  <div class="bg-blue-600 text-white p-4 sticky top-0 z-10 shadow-lg">
+    <div class="flex justify-between items-center">
+      <div>
+        <h2 class="font-bold text-lg">👤 <span id="saksiDisplayName"></span></h2>
+        <p class="text-blue-100 text-sm">TPS <span id="saksiDisplayTps"></span>  Desa <span id="saksiDisplayDesa"></span></p>
+      </div>
+      <button onclick="logout()" class="bg-red-500 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-red-600">Keluar</button>
+    </div>
+  </div>
+
+  <div class="p-4 max-w-2xl mx-auto">
+    <!-- Status Card -->
+    <div class="bg-white rounded-xl shadow p-4 mb-4 fade-in">
+      <div class="flex justify-between items-center mb-3">
+        <h3 class="font-bold text-gray-800">📋 Input Data Suara TPS <span id="tpsNumberLabel"></span></h3>
+        <span id="submitStatus" class="text-xs px-3 py-1 rounded-full bg-gray-100 text-gray-500">Belum Submit</span>
+      </div>
+      <div class="bg-blue-50 rounded-lg p-3 mb-4">
+        <p class="text-sm text-blue-800">Silakan isi perolehan suara untuk setiap calon. Pastikan data sesuai dengan C1 di TPS.</p>
+      </div>
+
+      <!-- Kandidat List -->
+      <div id="saksiKandidatList" class="space-y-3"></div>
+
+      <!-- Suara Tidak Sah -->
+      <div class="mt-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Suara Tidak Sah</label>
+        <input id="suaraTidakSah" type="number" min="0" value="0" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-orange-500 outline-none">
+      </div>
+
+      <!-- DPT -->
+      <div class="mt-3">
+        <label class="block text-sm font-medium text-gray-700 mb-1">DPT (Daftar Pemilih Tetap)</label>
+        <input id="dptTotal" type="number" min="0" value="0" class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none">
+      </div>
+
+      <!-- Foto C1 -->
+      <div class="mt-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Foto Form C1 (Opsional)</label>
+        <input id="fotoC1" type="file" accept="image/*" class="w-full px-4 py-2 rounded-lg border border-gray-300">
+      </div>
+
+      <button onclick="submitSuara()" class="w-full mt-5 bg-green-600 text-white py-3 rounded-lg font-bold hover:bg-green-700 transition">✅ Kirim Data Tabulasi</button>
+    </div>
+
+    <!-- History Submit -->
+    <div id="saksiHistory" class="bg-white rounded-xl shadow p-4 fade-in">
+      <h3 class="font-bold text-gray-800 mb-3">📜 Riwayat Input</h3>
+      <div id="historyList" class="space-y-2"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="adminPage" class="hidden min-h-screen">
+  <div class="bg-gray-800 text-white p-4 sticky top-0 z-10 shadow-lg">
+    <div class="flex justify-between items-center">
+      <div>
+        <h2 class="font-bold text-lg">📊 Dashboard Tabulasi - <span id="adminKandidatName"></span></h2>
+        <p class="text-gray-300 text-sm">Desa <span id="adminDesaName"></span></p>
+      </div>
+      <div class="flex gap-2 items-center">
+        <span class="flex items-center gap-1 text-green-400 text-sm"><span class="live-dot">🟢</span> Live</span>
+        <button onclick="logout()" class="bg-red-500 px-3 py-2 rounded-lg text-sm font-semibold hover:bg-red-600">Keluar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="p-4 max-w-5xl mx-auto">
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+      <div class="bg-white rounded-xl shadow p-4 text-center">
+        <p class="text-3xl font-bold text-blue-600" id="statTpsInput">0</p>
+        <p class="text-xs text-gray-500 mt-1">TPS Sudah Input</p>
+      </div>
+      <div class="bg-white rounded-xl shadow p-4 text-center">
+        <p class="text-3xl font-bold text-orange-500" id="statTotalSuara">0</p>
+        <p class="text-xs text-gray-500 mt-1">Total Suara Sah</p>
+      </div>
+      <div class="bg-white rounded-xl shadow p-4 text-center">
+        <p class="text-3xl font-bold text-red-500" id="statTidakSah">0</p>
+        <p class="text-xs text-gray-500 mt-1">Suara Tidak Sah</p>
+      </div>
+      <div class="bg-white rounded-xl shadow p-4 text-center">
+        <p class="text-3xl font-bold text-green-600" id="statPartisipasi">0%</p>
+        <p class="text-xs text-gray-500 mt-1">Partisipasi</p>
+      </div>
+    </div>
+
+    <!-- Bar Chart -->
+    <div class="bg-white rounded-xl shadow p-4 mb-4 fade-in">
+      <h3 class="font-bold text-gray-800 mb-3">📈 Grafik Perolehan Suara</h3>
+      <canvas id="chartSuara" height="100"></canvas>
+    </div>
+
+    <!-- Per Kandidat -->
+    <div class="bg-white rounded-xl shadow p-4 mb-4 fade-in">
+      <h3 class="font-bold text-gray-800 mb-3">🏆 Rekapitulasi Per Kandidat</h3>
+      <div id="adminKandidatResult" class="space-y-3"></div>
+    </div>
+
+    <!-- Per TPS Detail -->
+    <div class="bg-white rounded-xl shadow p-4 mb-4 fade-in">
+      <h3 class="font-bold text-gray-800 mb-3">📋 Detail Per TPS</h3>
+      <div id="adminTpsDetail" class="overflow-x-auto"></div>
+    </div>
+
+    <!-- Setup Kandidat -->
+    <div class="bg-white rounded-xl shadow p-4 mb-4 fade-in">
+      <h3 class="font-bold text-gray-800 mb-3">⚙️ Setup Calon Kepala Desa</h3>
+      <div class="flex gap-2 mb-3">
+        <input id="newKandidatName" type="text" placeholder="Nama calon kandidat" class="flex-1 px-4 py-2 rounded-lg border border-gray-300 outline-none focus:ring-2 focus:ring-blue-500">
+        <input id="newKandidatNo" type="number" placeholder="No Urut" class="w-24 px-4 py-2 rounded-lg border border-gray-300 outline-none focus:ring-2 focus:ring-blue-500">
+        <button onclick="addKandidat()" class="bg-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-blue-700">+ Tambah</button>
+      </div>
+      <div id="kandidatListAdmin" class="space-y-2"></div>
+    </div>
+
+    <!-- Management Saksi -->
+    <div class="bg-white rounded-xl shadow p-4 mb-4 fade-in">
+      <h3 class="font-bold text-gray-800 mb-3">👥 Manajemen Saksi & TPS</h3>
+      <div class="flex gap-2 mb-3">
+        <input id="newSaksiName" type="text" placeholder="Nama saksi" class="flex-1 px-4 py-2 rounded-lg border border-gray-300 outline-none">
+        <input id="newSaksiTps" type="number" placeholder="No TPS" class="w-24 px-4 py-2 rounded-lg border border-gray-300 outline-none">
+        <input id="newSaksiPhone" type="text" placeholder="No WA" class="w-40 px-4 py-2 rounded-lg border border-gray-300 outline-none">
+        <button onclick="addSaksi()" class="bg-green-600 text-white px-4 py-2 rounded-lg font-semibold hover:bg-green-700">+ Tambah</button>
+      </div>
+      <div id="saksiListAdmin" class="space-y-2"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// =========== DATA STORE (localStorage based SaaS demo) ===========
+const DB_KEY = 'pilkades_db';
+
+function getDB() {
+  let db = localStorage.getItem(DB_KEY);
+  if (!db) {
+    db = { tenants: {}, sessions: {} };
+    localStorage.setItem(DB_KEY, JSON.stringify(db));
+  } else {
+    db = JSON.parse(db);
+  }
+  return db;
+}
+
+function saveDB(db) {
+  localStorage.setItem(DB_KEY, JSON.stringify(db));
+}
+
+function getSession() {
+  return JSON.parse(localStorage.getItem('pilkades_session') || 'null');
+}
+
+function setSession(session) {
+  localStorage.setItem('pilkades_session', JSON.stringify(session));
+}
+
+function clearSession() {
+  localStorage.removeItem('pilkades_session');
+}
+
+// BroadcastChannel for real-time sync
+const channel = new BroadcastChannel('pilkades_sync');
+
+// =========== SEED DEMO DATA ===========
+function seedDemo() {
+  let db = getDB();
+  if (Object.keys(db.tenants).length === 0) {
+    const demoCode = 'KANDIDAT-01';
+    db.tenants[demoCode] = {
+      kode: demoCode,
+      kandidatName: 'Tim Kandidat 01',
+      desa: 'Sriamur',
+      adminCode: 'ADMIN-01',
+      calon: [
+        { id: 1, noUrut: 1, name: 'H. Ahmad Soleh' },
+        { id: 2, noUrut: 2, name: 'Drs. Bambang Wijaya' },
+        { id: 3, noUrut: 3, name: 'Siti Nurhaliza, S.Sos' }
+      ],
+      saksi: [
+        { id: 1, name: 'Pak Joko', tps: 1, phone: '081234567890', submitted: false },
+        { id: 2, name: 'Bu Siti', tps: 2, phone: '081234567891', submitted: false },
+        { id: 3, name: 'Pak Budi', tps: 3, phone: '081234567892', submitted: false }
+      ],
+      suara: {},
+      totalTps: 10,
+      dptPerTps: {}
+    };
+    saveDB(db);
+  }
+}
+seedDemo();
+
+// =========== LOGIN FUNCTIONS ===========
+let currentLoginMode = 'saksi';
+
+function switchLogin(mode) {
+  currentLoginMode = mode;
+  if (mode === 'saksi') {
+    document.getElementById('tabSaksi').className = 'flex-1 py-2 rounded-lg font-semibold text-sm transition bg-blue-600 text-white';
+    document.getElementById('tabAdmin').className = 'flex-1 py-2 rounded-lg font-semibold text-sm transition bg-gray-100 text-gray-600';
+    document.getElementById('saksiLogin').classList.remove('hidden');
+    document.getElementById('adminLogin').classList.add('hidden');
+  } else {
+    document.getElementById('tabAdmin').className = 'flex-1 py-2 rounded-lg font-semibold text-sm transition bg-blue-600 text-white';
+    document.getElementById('tabSaksi').className = 'flex-1 py-2 rounded-lg font-semibold text-sm transition bg-gray-100 text-gray-600';
+    document.getElementById('adminLogin').classList.add('hidden');
+    document.getElementById('adminLogin').classList.remove('hidden');
+  }
+}
+
+function loginSaksi() {
+  const name = document.getElementById('saksiName').value.trim();
+  const code = document.getElementById('saksiCode').value.trim().toUpperCase();
+  const tps = parseInt(document.getElementById('saksiTps').value);
+
+  if (!name || !code || !tps) { alert('Mohon isi semua field'); return; }
+
+  const db = getDB();
+  const tenant = db.tenants[code];
+  if (!tenant) { alert('Kode tim kandidat tidak ditemukan'); return; }
+
+  const session = { role: 'saksi', kode: code, name, tps, desa: tenant.desa };
+  setSession(session);
+  showSaksiPage();
+}
+
+function loginAdmin() {
+  const name = document.getElementById('adminName').value.trim();
+  const code = document.getElementById('adminCode').value.trim().toUpperCase();
+  const desa = document.getElementById('adminDesa').value.trim();
+
+  if (!name || !code || !desa) { alert('Mohon isi semua field'); return; }
+
+  const db = getDB();
+
+  // Check if tenant exists with this admin code
+  let tenant = Object.values(db.tenants).find(t => t.adminCode === code);
+  
+  if (!tenant) {
+    // Create new tenant
+    const kode = 'KANDIDAT-' + String(Object.keys(db.tenants).length + 1).padStart(2, '0');
+    tenant = {
+      kode,
+      kandidatName: name,
+      desa,
+      adminCode: code,
+      calon: [],
+      saksi: [],
+      suara: {},
+      totalTps: 0,
+      dptPerTps: {}
+    };
+    db.tenants[kode] = tenant;
+    saveDB(db);
+  }
+
+  const session = { role: 'admin', kode: tenant.kode, name, desa: tenant.desa };
+  setSession(session);
+  showAdminPage();
+}
+
+function logout() {
+  clearSession();
+  document.getElementById('saksiPage').classList.add('hidden');
+  document.getElementById('adminPage').classList.add('hidden');
+  document.getElementById('loginPage').classList.remove('hidden');
+}
+
+// =========== SAKSI PAGE ===========
+function showSaksiPage() {
+  const session = getSession();
+  if (!session || session.role !== 'saksi') return;
+
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('saksiPage').classList.remove('hidden');
+
+  document.getElementById('saksiDisplayName').textContent = session.name;
+  document.getElementById('saksiDisplayTps').textContent = session.tps;
+  document.getElementById('saksiDisplayDesa').textContent = tenant.desa;
+  document.getElementById('tpsNumberLabel').textContent = session.tps;
+
+  // Check if already submitted
+  const tpsKey = 'tps_' + session.tps;
+  const alreadySubmitted = tenant.suara[tpsKey];
+
+  if (alreadySubmitted) {
+    document.getElementById('submitStatus').textContent = 'Sudah Submit';
+    document.getElementById('submitStatus').className = 'text-xs px-3 py-1 rounded-full bg-green-100 text-green-600';
+  }
+
+  // Render kandidat input
+  const list = document.getElementById('saksiKandidatList');
+  list.innerHTML = '';
+  tenant.calon.forEach(c => {
+    const existing = alreadySubmitted && alreadySubmitted.suara ? alreadySubmitted.suara[c.id] || 0 : 0;
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-3 bg-gray-50 rounded-lg p-3';
+    div.innerHTML = `
+      <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">${c.noUrut}</div>
+      <div class="flex-1">
+        <p class="font-medium text-gray-800">${c.name}</p>
+      </div>
+      <input type="number" min="0" value="${existing}" id="suara_${c.id}" class="w-24 px-3 py-2 text-center rounded-lg border-2 border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none text-xl font-bold">
+    `;
+    list.appendChild(div);
+  });
+
+  if (alreadySubmitted) {
+    document.getElementById('suaraTidakSah').value = alreadySubmitted.tidakSah || 0;
+    document.getElementById('dptTotal').value = alreadySubmitted.dpt || 0;
+  }
+
+  renderSaksiHistory();
+}
+
+function submitSuara() {
+  const session = getSession();
+  if (!session || session.role !== 'saksi') return;
+
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+
+  const tpsKey = 'tps_' + session.tps;
+  const suara = {};
+  let total = 0;
+  tenant.calon.forEach(c => {
+    const val = parseInt(document.getElementById('suara_' + c.id).value) || 0;
+    suara[c.id] = val;
+    total += val;
+  });
+
+  const tidakSah = parseInt(document.getElementById('suaraTidakSah').value) || 0;
+  const dpt = parseInt(document.getElementById('dptTotal').value) || 0;
+
+  tenant.suara[tpsKey] = {
+    tps: session.tps,
+    suara,
+    tidakSah,
+    dpt,
+    totalSah: total,
+    submittedBy: session.name,
+    timestamp: new Date().toISOString()
+  };
+
+  tenant.dptPerTps[tpsKey] = dpt;
+
+  // Mark saksi as submitted
+  const saksiEntry = tenant.saksi.find(s => s.tps === session.tps);
+  if (saksiEntry) saksiEntry.submitted = true;
+
+  saveDB(db);
+
+  // Broadcast update
+  channel.postMessage({ type: 'update', kode: session.kode });
+
+  document.getElementById('submitStatus').textContent = 'Sudah Submit';
+  document.getElementById('submitStatus').className = 'text-xs px-3 py-1 rounded-full bg-green-100 text-green-600';
+
+  alert('Data suara TPS ' + session.tps + ' berhasil dikirim! Total suara sah: ' + total);
+  renderSaksiHistory();
+}
+
+function renderSaksiHistory() {
+  const session = getSession();
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+
+  const list = document.getElementById('historyList');
+  const entries = Object.values(tenant.suara).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  if (entries.length === 0) {
+    list.innerHTML = '<p class="text-gray-400 text-sm">Belum ada data yang dikirim</p>';
+    return;
+  }
+
+  list.innerHTML = entries.map(e => {
+    const time = new Date(e.timestamp).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+    let suaraText = '';
+    tenant.calon.forEach(c => {
+      if (e.suara[c.id]) suaraText += `No.${c.noUrut}: ${e.suara[c.id]} | `;
+    });
+    return `
+      <div class="bg-gray-50 rounded-lg p-3 border-l-4 border-green-500">
+        <div class="flex justify-between">
+          <span class="font-semibold text-gray-700">TPS ${e.tps}</span>
+          <span class="text-xs text-gray-400">${time}</span>
+        </div>
+        <p class="text-sm text-gray-600 mt-1">${suaraText}</p>
+        <p class="text-xs text-gray-500 mt-1">Tidak sah: ${e.tidakSah} | DPT: ${e.dpt} | Sah: ${e.totalSah}</p>
+        <p class="text-xs text-blue-500 mt-1">Kirim oleh: ${e.submittedBy}</p>
+      </div>
+    `;
+  }).join('');
+}
+
+// =========== ADMIN PAGE ===========
+let chartInstance = null;
+
+function showAdminPage() {
+  const session = getSession();
+  if (!session || session.role !== 'admin') return;
+
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+
+  document.getElementById('loginPage').classList.add('hidden');
+  document.getElementById('adminPage').classList.remove('hidden');
+
+  document.getElementById('adminKandidatName').textContent = tenant.kandidatName;
+  document.getElementById('adminDesaName').textContent = tenant.desa;
+
+  renderAdmin();
+}
+
+function renderAdmin() {
+  const session = getSession();
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+
+  // Stats
+  const tpsInput = Object.keys(tenant.suara).length;
+  const totalSuaraSah = Object.values(tenant.suara).reduce((sum, s) => sum + s.totalSah, 0);
+  const totalTidakSah = Object.values(tenant.suara).reduce((sum, s) => sum + s.tidakSah, 0);
+  const totalDpt = Object.values(tenant.dptPerTps).reduce((sum, d) => sum + d, 0);
+  const partisipasi = totalDpt > 0 ? Math.round((totalSuaraSah + totalTidakSah) / totalDpt * 100) : 0;
+
+  document.getElementById('statTpsInput').textContent = tpsInput;
+  document.getElementById('statTotalSuara').textContent = totalSuaraSah.toLocaleString('id-ID');
+  document.getElementById('statTidakSah').textContent = totalTidakSah.toLocaleString('id-ID');
+  document.getElementById('statPartisipasi').textContent = partisipasi + '%';
+
+  // Chart
+  const ctx = document.getElementById('chartSuara').getContext('2d');
+  const labels = tenant.calon.map(c => 'No.' + c.noUrut + ' ' + c.name.split(' ')[0]);
+  const data = tenant.calon.map(c => {
+    return Object.values(tenant.suara).reduce((sum, s) => sum + (s.suara[c.id] || 0), 0);
+  });
+
+  const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
+  
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels.length > 0 ? labels : ['Belum ada kandidat'],
+      datasets: [{
+        label: 'Perolehan Suara',
+        data: data.length > 0 ? data : [0],
+        backgroundColor: colors.slice(0, labels.length),
+        borderRadius: 8
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+
+  // Per kandidat
+  const kandidatDiv = document.getElementById('adminKandidatResult');
+  kandidatDiv.innerHTML = '';
+  const grandTotal = totalSuaraSah || 1;
+  tenant.calon.forEach((c, i) => {
+    const total = Object.values(tenant.suara).reduce((sum, s) => sum + (s.suara[c.id] || 0), 0);
+    const persen = Math.round(total / grandTotal * 100);
+    const barColor = colors[i % colors.length];
+    const isLeading = total === Math.max(...data) && total > 0;
+    
+    const div = document.createElement('div');
+    div.className = `p-3 rounded-lg border-2 ${isLeading ? 'border-green-400 bg-green-50' : 'border-gray-200 bg-gray-50'}`;
+    div.innerHTML = `
+      <div class="flex justify-between items-center mb-2">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-sm" style="background:${barColor}">${c.noUrut}</div>
+          <span class="font-semibold text-gray-800">${c.name}</span>
+          ${isLeading ? '<span class="text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">Leading</span>' : ''}
+        </div>
+        <span class="text-2xl font-bold" style="color:${barColor}">${total.toLocaleString('id-ID')}</span>
+      </div>
+      <div class="w-full bg-gray-200 rounded-full h-3 mb-1">
+        <div class="h-3 rounded-full transition-all duration-500" style="width:${persen}%; background:${barColor}"></div>
+      </div>
+      <p class="text-xs text-gray-500 text-right">${persen}%</p>
+    `;
+    kandidatDiv.appendChild(div);
+  });
+
+  if (tenant.calon.length === 0) {
+    kandidatDiv.innerHTML = '<p class="text-gray-400 text-sm">Belum ada kandidat. Tambahkan di bawah.</p>';
+  }
+
+  // TPS Detail
+  renderTpsDetail();
+
+  // Kandidat List (setup)
+  renderKandidatSetup();
+
+  // Saksi List
+  renderSaksiSetup();
+}
+
+function renderTpsDetail() {
+  const session = getSession();
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+  const div = document.getElementById('adminTpsDetail');
+
+  const tpsList = Object.values(tenant.suara).sort((a, b) => a.tps - b.tps);
+  
+  if (tpsList.length === 0) {
+    div.innerHTML = '<p class="text-gray-400 text-sm">Belum ada TPS yang submit data</p>';
+    return;
+  }
+
+  let html = '<table class="w-full text-sm"><thead><tr class="border-b-2 border-gray-200"><th class="text-left py-2 px-2">TPS</th>';
+  tenant.calon.forEach(c => {
+    html += `<th class="text-center py-2 px-2">No.${c.noUrut}</th>`;
+  });
+  html += '<th class="text-center py-2 px-2">Tdk Sah</th><th class="text-center py-2 px-2">DPT</th><th class="text-center py-2 px-2">Saksi</th><th class="text-center py-2 px-2">Waktu</th></tr></thead><tbody>';
+  
+  tpsList.forEach(s => {
+    html += `<tr class="border-b border-gray-100 hover:bg-blue-50">`;
+    html += `<td class="py-2 px-2 font-bold">TPS ${s.tps}</td>`;
+    tenant.calon.forEach(c => {
+      html += `<td class="text-center py-2 px-2">${s.suara[c.id] || 0}</td>`;
+    });
+    const time = new Date(s.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+    html += `<td class="text-center py-2 px-2 text-red-500">${s.tidakSah}</td><td class="text-center py-2 px-2">${s.dpt}</td><td class="text-center py-2 px-2 text-xs">${s.submittedBy}</td><td class="text-center py-2 px-2 text-xs text-gray-400">${time}</td>`;
+    html += '</tr>';
+  });
+  
+  html += '</tbody></table>';
+  div.innerHTML = html;
+}
+
+function renderKandidatSetup() {
+  const session = getSession();
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+  const div = document.getElementById('kandidatListAdmin');
+
+  if (tenant.calon.length === 0) {
+    div.innerHTML = '<p class="text-gray-400 text-sm">Belum ada kandidat</p>';
+    return;
+  }
+
+  div.innerHTML = tenant.calon.map(c => `
+    <div class="flex items-center justify-between bg-gray-50 rounded-lg p-2">
+      <div class="flex items-center gap-2">
+        <span class="bg-blue-600 text-white w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold">${c.noUrut}</span>
+        <span class="text-gray-700">${c.name}</span>
+      </div>
+      <button onclick="removeKandidat(${c.id})" class="text-red-500 text-sm hover:underline">Hapus</button>
+    </div>
+  `).join('');
+}
+
+function renderSaksiSetup() {
+  const session = getSession();
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+  const div = document.getElementById('saksiListAdmin');
+
+  if (tenant.saksi.length === 0) {
+    div.innerHTML = '<p class="text-gray-400 text-sm">Belum ada saksi</p>';
+    return;
+  }
+
+  div.innerHTML = tenant.saksi.map(s => `
+    <div class="flex items-center justify-between bg-gray-50 rounded-lg p-2">
+      <div class="flex items-center gap-2">
+        <span class="text-lg">${s.submitted ? '✅' : '⏳'}</span>
+        <div>
+          <span class="text-gray-700 font-medium">${s.name}</span>
+          <span class="text-xs text-gray-400 ml-2">TPS ${s.tps}  ${s.phone || ''}</span>
+        </div>
+      </div>
+      <button onclick="removeSaksi(${s.id})" class="text-red-500 text-sm hover:underline">Hapus</button>
+    </div>
+  `).join('');
+}
+
+function addKandidat() {
+  const name = document.getElementById('newKandidatName').value.trim();
+  const no = parseInt(document.getElementById('newKandidatNo').value);
+  if (!name || !no) { alert('Isi nama dan no urut kandidat'); return; }
+
+  const session = getSession();
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+  
+  const id = Math.max(0, ...tenant.calon.map(c => c.id)) + 1;
+  tenant.calon.push({ id, noUrut: no, name });
+  tenant.calon.sort((a, b) => a.noUrut - b.noUrut);
+  saveDB(db);
+
+  document.getElementById('newKandidatName').value = '';
+  document.getElementById('newKandidatNo').value = '';
+
+  renderAdmin();
+}
+
+function removeKandidat(id) {
+  if (!confirm('Hapus kandidat ini?')) return;
+  const session = getSession();
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+  tenant.calon = tenant.calon.filter(c => c.id !== id);
+  saveDB(db);
+  renderAdmin();
+}
+
+function addSaksi() {
+  const name = document.getElementById('newSaksiName').value.trim();
+  const tps = parseInt(document.getElementById('newSaksiTps').value);
+  const phone = document.getElementById('newSaksiPhone').value.trim();
+  if (!name || !tps) { alert('Isi nama dan TPS saksi'); return; }
+
+  const session = getSession();
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+  
+  const id = Math.max(0, ...tenant.saksi.map(s => s.id)) + 1;
+  tenant.saksi.push({ id, name, tps, phone, submitted: false });
+  tenant.saksi.sort((a, b) => a.tps - b.tps);
+  saveDB(db);
+
+  document.getElementById('newSaksiName').value = '';
+  document.getElementById('newSaksiTps').value = '';
+  document.getElementById('newSaksiPhone').value = '';
+
+  renderAdmin();
+}
+
+function removeSaksi(id) {
+  if (!confirm('Hapus saksi ini?')) return;
+  const session = getSession();
+  const db = getDB();
+  const tenant = db.tenants[session.kode];
+  tenant.saksi = tenant.saksi.filter(s => s.id !== id);
+  saveDB(db);
+  renderAdmin();
+}
+
+// =========== REAL-TIME SYNC ===========
+channel.onmessage = (e) => {
+  const session = getSession();
+  if (!session) return;
+  if (session.role === 'admin' && e.data.kode === session.kode) {
+    renderAdmin();
+  }
+};
+
+// =========== AUTO REFRESH (simulasi real-time) ===========
+setInterval(() => {
+  const session = getSession();
+  if (session && session.role === 'admin') {
+    const db = getDB();
+    const tenant = db.tenants[session.kode];
+    const currentCount = Object.keys(tenant.suara).length;
+    if (currentCount !== parseInt(document.getElementById('statTpsInput').textContent)) {
+      renderAdmin();
+    }
+  }
+}, 2000);
+
+// =========== INIT ON LOAD ===========
+window.addEventListener('DOMContentLoaded', () => {
+  const session = getSession();
+  if (session) {
+    if (session.role === 'saksi') showSaksiPage();
+    else if (session.role === 'admin') showAdminPage();
+  }
+});
+</script>
+</body>
+</html>
